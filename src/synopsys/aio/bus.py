@@ -70,7 +70,7 @@ class EventBus:
     ) -> None:
         """Publish and wait until event is flushed by underlying messaging system."""
         if not isinstance(message, _Request):
-            raise TypeError("Can only reply to requests")
+            return
         if metadata is ...:
             metadata = {}  # type: ignore[assignment]
         subject = message.reply_subject

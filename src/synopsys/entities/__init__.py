@@ -1,4 +1,4 @@
-from .actors import Actor, Producer, Subscriber
+from .actors import Actor, Producer, Subscriber, Service
 from .events import Event
 from .flows import Flow, Subscription
 from .messages import Message
@@ -10,6 +10,7 @@ __all__ = [
     "Flow",
     "Message",
     "Producer",
+    "Service",
     "SubjectSyntax",
     "Subscriber",
     "Subscription",

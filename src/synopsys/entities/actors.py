@@ -34,3 +34,8 @@ class Subscriber(Actor, t.Generic[ScopeT, DataT, MetadataT, ReplyT]):
         t.Coroutine[t.Any, t.Any, ReplyT],
     ]
     queue: t.Optional[str] = None
+
+
+@dataclass
+class Service(Subscriber[ScopeT, DataT, MetadataT, ReplyT]):
+    """An actor which subscribes and replies to events."""

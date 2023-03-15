@@ -7,7 +7,7 @@ from types import TracebackType
 from anyio import Event, create_task_group, get_cancelled_exc_class, run
 from anyio.abc._tasks import TaskGroup
 
-from ..entities.actors import Actor, Producer, Subscriber
+from ..entities.actors import Actor, Producer, Subscriber, Service
 from ..interfaces.instrumentation import PlayInstrumentation
 from .bus import EventBus
 
@@ -47,13 +47,16 @@ class Play:
     async def _create_loop(self, actor: Subscriber[t.Any, t.Any, t.Any, t.Any]) -> None:
         event = actor.flow.source
         callback = actor.handler
+        is_service = isinstance(actor, Service)
         async with self.bus.subscribe(event, queue=actor.queue) as subscription:
             self.instrumentation.actor_started(self, actor)
             async for msg in subscription:
-                print("Received event")
                 self.instrumentation.event_received(self, actor, msg)
                 try:
-                    await callback(msg)
+                    result = await callback(msg)
+                    # Reply when actor is a service
+                    if is_service:
+                        await self.bus.reply(msg, result)
                     self.instrumentation.event_processed(self, actor, msg)
                 except Exception as exc:
                     self.instrumentation.event_processing_failed(self, actor, msg, exc)
