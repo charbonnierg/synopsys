@@ -78,6 +78,7 @@ class Event(t.Generic[ScopeT, DataT, MetadataT, ReplyT]):
         title: t.Optional[str] = None,
         description: t.Optional[str] = None,
         syntax: t.Optional[SubjectSyntax] = None,
+        is_filter: bool = False,
     ) -> None:
         """Create a new event using a subjet and a schema."""
         if not name:
@@ -100,7 +101,10 @@ class Event(t.Generic[ScopeT, DataT, MetadataT, ReplyT]):
         if not hasattr(self.scope_schema, "__annotations__"):
             return
         # Ensure that subject is valid according to scope annotations
-        if len(self.scope_schema.__annotations__) > len(self._placeholders):
+        if (
+            len(self.scope_schema.__annotations__) > len(self._placeholders)
+            and not is_filter
+        ):
             missing = list(
                 set(self.scope_schema.__annotations__).difference(self._placeholders)
             )
@@ -116,7 +120,7 @@ class Event(t.Generic[ScopeT, DataT, MetadataT, ReplyT]):
             )
 
     def __repr__(self) -> str:
-        return f"Event(name='{self.name}', subject='{self.subject}', schema={self.schema.__name__})"
+        return f"Event(name='{self.name}', subject='{self.subject}', schema={getattr(self.schema, '__name__', str(self.schema))})"
 
     def match_subject(self, subject: str) -> bool:
         """Return True if event matches given subject."""

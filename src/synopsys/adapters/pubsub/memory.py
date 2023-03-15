@@ -1,13 +1,17 @@
+import logging
 import typing as t
-from asyncio import Queue as AIOQueue
-from asyncio import QueueFull, Task, create_task, wait_for
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from secrets import token_hex
 
+from anyio import ClosedResourceError, create_memory_object_stream
+
 from synopsys.entities.syntax import SubjectSyntax
+from synopsys.errors import BusDisconnectedError, SubscriptionClosedError
 from synopsys.interfaces.pubsub import PubSubBackend, PubSubMsg
 from synopsys.operations.subjects import match_subject
+
+logger = logging.getLogger("pubsub.memory")
 
 
 @dataclass
@@ -36,6 +40,23 @@ class InMemoryMsg(PubSubMsg):
         return self.reply_subject
 
 
+class _Observer:
+    def __init__(self, subject: str, syntax: SubjectSyntax) -> None:
+        self._send, self._receive = create_memory_object_stream(
+            max_buffer_size=1, item_type=InMemoryMsg
+        )
+        self.subject = subject
+        self.syntax = syntax
+
+    async def deliver(self, msg: InMemoryMsg) -> None:
+        if not match_subject(self.subject, msg.subject, self.syntax):
+            return
+        await self._send.send(msg)
+
+    async def receive(self) -> InMemoryMsg:
+        return await self._receive.receive()
+
+
 class InMemoryPubSub(PubSubBackend):
     """Implementation of an in-memory pub-sub backend.
 
@@ -54,24 +75,21 @@ class InMemoryPubSub(PubSubBackend):
         By default, NATS syntax is used for subjects.
         """
         self.syntax = syntax or SubjectSyntax()
-        self.subscribers: t.List[t.Tuple[str, str, AIOQueue[InMemoryMsg]]] = []
-        self.responders: t.List[
-            t.Tuple[
-                str,
-                str,
-                AIOQueue[InMemoryMsg],
-            ],
-        ] = []
+        self.observers: t.List[_Observer] = []
+        self._closed = False
 
-    async def __request_event(self, request: InMemoryMsg) -> InMemoryMsg:
-        """Wait for a single event."""
-        if not request.reply_subject:
-            raise ValueError("Cannot request event without reply subject")
-        async with self.subscribe(request.reply_subject) as observer:
-            self.__notify_request(request)
-            async for event in observer:
-                return event
-        raise ValueError("No reply received")
+    async def __notify_msg(self, msg: InMemoryMsg) -> None:
+        """Distribue message to subscribers."""
+        if self._closed:
+            raise BusDisconnectedError()
+        # Make a copy before iteration because observers is mutated within loop
+        for observer in list(self.observers):
+            try:
+                await observer.deliver(msg)
+            except ClosedResourceError:
+                # Remote observers which are closed
+                self.observers.remove(observer)
+                continue
 
     async def publish(
         self,
@@ -80,8 +98,14 @@ class InMemoryPubSub(PubSubBackend):
         headers: t.Dict[str, str],
         timeout: t.Optional[float] = None,
     ) -> None:
+        """Publish a message.
+
+        In order to publish an in-memory message, we just need to notify subscribers.
+        """
+        if self._closed:
+            raise BusDisconnectedError()
         msg = InMemoryMsg(subject, payload, headers)
-        self.__notify_msg(msg)
+        await self.__notify_msg(msg)
 
     async def request(
         self,
@@ -90,43 +114,30 @@ class InMemoryPubSub(PubSubBackend):
         headers: t.Dict[str, str],
         timeout: t.Optional[float] = None,
     ) -> InMemoryMsg:
-        """Request an event."""
+        """Request an event.
+
+        In order to request an in-memory message, we need to create a waiter then notify responders
+        and finally wait for reply.
+        """
+        if self._closed:
+            raise BusDisconnectedError()
+        # Generate a new reply subject
         reply_subject: str = token_hex(16)
+        # Generate a new message with the reply subject
         req = InMemoryMsg(subject, payload, headers, reply_subject)
-        msg = await wait_for(self.__request_event(req), timeout=timeout)
-        return msg
-
-    def __notify_msg(self, msg: InMemoryMsg) -> None:
-        """Distribue message to subscribers."""
-        queues_processed: t.Set[str] = set()
-        for target, queue, observer in self.subscribers:
-            if queue and queue in queues_processed:
-                continue
-            if not match_subject(target, msg.subject, self.syntax):
-                continue
+        # Create a new observer on reply subject
+        observer = _Observer(reply_subject, self.syntax)
+        self.observers.append(observer)
+        # Notify the subscribers
+        try:
+            await self.__notify_msg(req)
+            # Return reply
             try:
-                observer.put_nowait(msg)
-            except QueueFull:
-                continue
-            else:
-                if queue:
-                    queues_processed.add(queue)
-
-    def __notify_request(self, request: InMemoryMsg) -> None:
-        """Distribute request to subscribers."""
-        queues_processed: t.Set[str] = set()
-        for target, queue, responder in self.responders:
-            if queue and queue in queues_processed:
-                continue
-            if not match_subject(target, request.subject, self.syntax):
-                continue
-            try:
-                responder.put_nowait(request)
-            except QueueFull:
-                continue
-            else:
-                if queue:
-                    queues_processed.add(queue)
+                return await observer.receive()
+            except ClosedResourceError as exc:
+                raise SubscriptionClosedError from exc
+        finally:
+            self.observers.remove(observer)
 
     @asynccontextmanager
     async def subscribe(
@@ -135,22 +146,41 @@ class InMemoryPubSub(PubSubBackend):
         queue: t.Optional[str] = None,
     ) -> t.AsyncIterator[t.AsyncIterator[InMemoryMsg]]:
         """Create a new observer, optionally within a queue."""
+        if self._closed:
+            raise BusDisconnectedError()
         queue = queue or ""
-        observer: "AIOQueue[InMemoryMsg]" = AIOQueue()
-        key = (subject, queue, observer)
-        self.subscribers.append(key)
-        current_task: t.Optional["Task[InMemoryMsg]"] = None
+        observer = _Observer(subject, self.syntax)
+        self.observers.append(observer)
 
-        async def iterator() -> t.AsyncIterator["InMemoryMsg"]:
-            nonlocal current_task
-            nonlocal observer
+        async def iterator() -> t.AsyncIterator[InMemoryMsg]:
             while True:
-                current_task = create_task(observer.get())
-                yield await wait_for(current_task, timeout=None)
+                try:
+                    yield await observer.receive()
+                except ClosedResourceError:
+                    raise SubscriptionClosedError()
 
         try:
             yield iterator()
         finally:
-            if current_task:
-                current_task.cancel()
-            self.subscribers.remove(key)
+            try:
+                await observer._receive.aclose()
+                await observer._send.aclose()
+            except ClosedResourceError:
+                pass
+            finally:
+                self.observers.remove(observer)
+
+    async def disconnect(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        for observer in self.observers:
+            try:
+                await observer._send.aclose()
+            except ClosedResourceError:
+                continue
+        for observer in self.observers:
+            try:
+                await observer._receive.aclose()
+            except ClosedResourceError:
+                continue

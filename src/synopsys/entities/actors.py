@@ -1,4 +1,3 @@
-import asyncio
 import typing as t
 from dataclasses import dataclass
 
@@ -14,6 +13,7 @@ if t.TYPE_CHECKING:
 class Actor:
     """Base class for actors."""
 
+    name: str
     flow: Flow
 
 
@@ -21,7 +21,7 @@ class Actor:
 class Producer(Actor):
     """An actor which produce events."""
 
-    task_factory: t.Callable[["EventBus"], "asyncio.Task[None]"]
+    task_factory: t.Callable[["EventBus"], t.Coroutine[t.Any, t.Any, None]]
 
 
 @dataclass
@@ -33,3 +33,4 @@ class Subscriber(Actor, t.Generic[ScopeT, DataT, MetadataT, ReplyT]):
         [Message[ScopeT, DataT, MetadataT, ReplyT]],
         t.Coroutine[t.Any, t.Any, ReplyT],
     ]
+    queue: t.Optional[str] = None

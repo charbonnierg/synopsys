@@ -2,6 +2,7 @@ import asyncio
 import typing as t
 
 from ..entities import Message
+from ..types import ReplyT
 
 MsgT = t.TypeVar("MsgT", bound=Message[t.Any, t.Any, t.Any, t.Any])
 
@@ -35,3 +36,22 @@ class Waiter(t.Generic[MsgT]):
     async def wait(self, timeout: t.Optional[float] = 5) -> MsgT:
         """Wait until event is received"""
         return await asyncio.wait_for(self.task, timeout=timeout)
+
+
+class RequestWaiter(t.Generic[ReplyT]):
+    def __init__(self, coroutine: t.Coroutine[t.Any, t.Any, ReplyT]) -> None:
+        self.task = asyncio.create_task(coroutine)
+
+    async def wait(self, timeout: t.Optional[float] = 5) -> ReplyT:
+        """Wait until event is received"""
+        return await asyncio.wait_for(self.task, timeout=timeout)
+
+    @classmethod
+    async def create(
+        cls,
+        coroutine: t.Coroutine[t.Any, t.Any, ReplyT],
+    ) -> "RequestWaiter[ReplyT]":
+        """Create and start waiter in background."""
+        waiter = cls(coroutine)
+        await asyncio.sleep(0)
+        return waiter

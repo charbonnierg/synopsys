@@ -1,6 +1,7 @@
 import typing as t
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from types import TracebackType
 
 from ..entities.events import Event
 from ..entities.flows import Flow, Subscription
@@ -8,12 +9,15 @@ from ..entities.messages import Message
 from ..interfaces.codec import CodecBackend
 from ..interfaces.pubsub import PubSubBackend, PubSubMsg
 from ..types import DataT, MetadataT, ReplyT, ScopeT
-from .waiter import Waiter
+from .waiter import RequestWaiter, Waiter
 
 
 @dataclass
 class _Request(Message[ScopeT, DataT, MetadataT, ReplyT]):
     reply_subject: str
+
+
+BusT = t.TypeVar("BusT", bound="EventBus")
 
 
 class EventBus:
@@ -25,6 +29,10 @@ class EventBus:
         self.pubsub = pubsub
         self.codec = codec
         self.flow = flow
+
+    def bind_flow(self, flow: Flow) -> "EventBus":
+        """Create a new event bus scoped to a flow."""
+        return self.__class__(self.pubsub, self.codec, flow=flow)
 
     def _create_message(
         self, msg: PubSubMsg, event: Event[ScopeT, DataT, MetadataT, ReplyT]
@@ -52,7 +60,7 @@ class EventBus:
             reply_subject=reply_subject,
         )
 
-    async def _reply(
+    async def reply(
         self,
         message: Message[ScopeT, DataT, MetadataT, ReplyT],
         data: ReplyT,
@@ -154,7 +162,7 @@ class EventBus:
                     f"Can only subscribe to the flow source. Tried to subscribe to event {event.name} but flow source is {self.flow.source.name}"
                 )
 
-        async with self.pubsub.subscribe(event.subject, queue=queue) as subscription:
+        async with self.pubsub.subscribe(event._subject, queue=queue) as subscription:
 
             async def iterator() -> t.AsyncIterator[
                 Message[ScopeT, DataT, MetadataT, ReplyT]
@@ -181,3 +189,44 @@ class EventBus:
     ) -> Waiter[Message[ScopeT, DataT, MetadataT, ReplyT]]:
         """Start waiting in background"""
         return await Waiter.create(self.subscribe(event))
+
+    async def request_in_background(
+        self,
+        event: Event[ScopeT, DataT, MetadataT, ReplyT],
+        data: DataT,
+        *,
+        scope: ScopeT = ...,  # type: ignore[assignment]
+        metadata: MetadataT = ...,  # type: ignore[assignment]
+        timeout: t.Optional[float] = None,
+    ) -> RequestWaiter[ReplyT]:
+        """Send a request and wait in background."""
+        return await RequestWaiter.create(
+            self.request(event, data, scope=scope, metadata=metadata, timeout=timeout)
+        )
+
+    async def connect(self) -> None:
+        """Connect event bus.
+
+        Calls the .connect() method of the pubsub backend.
+        """
+        await self.pubsub.connect()
+
+    async def disconnect(self) -> None:
+        """Disconnect event bus.
+
+        Calls the .disconnect() method of the pubsub backend.
+        """
+        await self.pubsub.disconnect()
+
+    async def __aenter__(self: BusT) -> BusT:
+        await self.connect()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: t.Optional[t.Type[BaseException]] = None,
+        exc: t.Optional[BaseException] = None,
+        traceback: t.Optional[TracebackType] = None,
+    ) -> None:
+        """Disconnect on context exit."""
+        await self.disconnect()

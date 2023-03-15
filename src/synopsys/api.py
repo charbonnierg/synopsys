@@ -370,6 +370,7 @@ def create_flow(
             title=source.title,
             description=source.description,
             syntax=source.syntax,
+            is_filter=True,
         )
         return Subscription(
             emits=emits, requests=requests, source=source, filter=source_filter

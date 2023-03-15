@@ -1,5 +1,8 @@
 import abc
 import typing as t
+from types import TracebackType
+
+BackendT = t.TypeVar("BackendT", bound="PubSubBackend")
 
 
 class PubSubMsg(metaclass=abc.ABCMeta):
@@ -59,3 +62,23 @@ class PubSubBackend(metaclass=abc.ABCMeta):
     ) -> t.AsyncContextManager[t.AsyncIterator[PubSubMsg]]:
         """Subscribe to events published on given subject."""
         raise NotImplementedError  # pragma: no cover
+
+    async def connect(self) -> None:
+        """Connect to remote pubsub."""
+
+    async def disconnect(self) -> None:
+        """Disconnect from remote pubsub."""
+
+    async def __aenter__(self: BackendT) -> BackendT:
+        """Connect on context enter."""
+        await self.connect()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: t.Optional[t.Type[BaseException]] = None,
+        exc: t.Optional[BaseException] = None,
+        traceback: t.Optional[TracebackType] = None,
+    ) -> None:
+        """Disconnect on context exit."""
+        await self.disconnect()

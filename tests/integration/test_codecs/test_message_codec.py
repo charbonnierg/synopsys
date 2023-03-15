@@ -72,7 +72,7 @@ class TestCodecDecode:
         self, codec: PseudoJSONCodec
     ):
         with pytest.raises(ValueError, match="Expected None but got non-null data"):
-            codec.decode_payload(b"hello", None)
+            codec.decode_payload(b"hello", type(None))
 
     @pytest.mark.parametrize(
         "schema,result",
