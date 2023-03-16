@@ -1,9 +1,9 @@
 import typing as t
 from dataclasses import dataclass
 
-from ..types import DataT, MetadataT, ReplyT, ScopeT
-from .flows import Flow, Subscription
-from .messages import Message
+from ..types import DataT, MetaT, ReplyT, ScopeT, ReplyMetaT
+from .flows import SubscriptionFlow, ServiceFlow, ProducerFlow
+from .messages import Message, Reply
 
 if t.TYPE_CHECKING:
     from ..aio.bus import EventBus  # pragma: no cover
@@ -14,28 +14,44 @@ class Actor:
     """Base class for actors."""
 
     name: str
-    flow: Flow
 
 
 @dataclass
 class Producer(Actor):
     """An actor which produce events."""
 
+    flow: ProducerFlow
+
     task_factory: t.Callable[["EventBus"], t.Coroutine[t.Any, t.Any, None]]
 
 
 @dataclass
-class Subscriber(Actor, t.Generic[ScopeT, DataT, MetadataT, ReplyT]):
+class Subscriber(Actor, t.Generic[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]):
     """An actor which subscribes to events and may respond."""
 
-    flow: Subscription[ScopeT, DataT, MetadataT, ReplyT]
+    flow: SubscriptionFlow[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]
+
     handler: t.Callable[
-        [Message[ScopeT, DataT, MetadataT, ReplyT]],
-        t.Coroutine[t.Any, t.Any, ReplyT],
+        [Message[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]],
+        t.Coroutine[t.Any, t.Any, None],
     ]
+    """A subscriber handler must return None"""
+
     queue: t.Optional[str] = None
+    """A subscriber may belong to a queue"""
 
 
 @dataclass
-class Service(Subscriber[ScopeT, DataT, MetadataT, ReplyT]):
+class Service(Actor, t.Generic[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]):
     """An actor which subscribes and replies to events."""
+
+    flow: ServiceFlow[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]
+
+    handler: t.Callable[
+        [Message[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]],
+        t.Coroutine[t.Any, t.Any, Reply[ReplyT, ReplyMetaT]],
+    ]
+    """A service must return a reply according to flow command definition."""
+
+    queue: t.Optional[str] = None
+    """A service may belong to a queue."""

@@ -1,7 +1,7 @@
 from .__about__ import __version__
 from .aio import EventBus, Play
 from .api import create_bus, create_event, create_flow
-from .entities import Message, Producer, Subscriber, Service
+from .entities import Message, Reply, Producer, Subscriber, Service, SimpleReply
 from .types import NULL
 
 __all__ = [
@@ -12,7 +12,9 @@ __all__ = [
     "EventBus",
     "Message",
     "Play",
+    "Reply",
     "Producer",
+    "SimpleReply",
     "Service",
     "Subscriber",
     "NULL",

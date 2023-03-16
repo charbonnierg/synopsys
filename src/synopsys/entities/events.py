@@ -26,11 +26,11 @@ from ..operations.subjects import (
     normalize_subject,
     render_subject,
 )
-from ..types import DataT, MetadataT, ReplyT, ScopeT
+from ..types import DataT, MetaT, ReplyT, ScopeT, ReplyMetaT
 from .syntax import SubjectSyntax
 
 
-class Event(t.Generic[ScopeT, DataT, MetadataT, ReplyT]):
+class Event(t.Generic[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]):
     """An event is a specification.
 
     In practice, events are delivered through messages.
@@ -64,8 +64,11 @@ class Event(t.Generic[ScopeT, DataT, MetadataT, ReplyT]):
     reply_schema: t.Type[ReplyT]
     """The reply schema, I.E, the schema of the data found in event reply."""
 
-    metadata_schema: t.Type[MetadataT]
+    metadata_schema: t.Type[MetaT]
     """The metadata schema, I.E, the schema of the data found in the headers of event messages."""
+
+    reply_metadata_schema: t.Type[ReplyMetaT]
+    """The reply metadata schema, I.E, the sceham of the data found in the headers of event replies."""
 
     def __init__(
         self,
@@ -74,7 +77,8 @@ class Event(t.Generic[ScopeT, DataT, MetadataT, ReplyT]):
         schema: t.Type[DataT],
         scope_schema: t.Type[ScopeT],
         reply_schema: t.Type[ReplyT],
-        metadata_schema: t.Type[MetadataT],
+        metadata_schema: t.Type[MetaT],
+        reply_metadata_schema: t.Type[ReplyMetaT],
         title: t.Optional[str] = None,
         description: t.Optional[str] = None,
         syntax: t.Optional[SubjectSyntax] = None,
@@ -91,6 +95,7 @@ class Event(t.Generic[ScopeT, DataT, MetadataT, ReplyT]):
         self.schema = schema
         self.reply_schema = reply_schema
         self.metadata_schema = metadata_schema
+        self.reply_metadata_schema = reply_metadata_schema
         self.title = title or name
         self.description = description or ""
         self.syntax = syntax or DEFAULT_SYNTAX

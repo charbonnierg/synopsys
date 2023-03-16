@@ -19,7 +19,7 @@ class TestCodecDecode:
         assert isinstance(codec, PseudoJSONCodec)
 
     def test_decode_to_null(self, codec: PseudoJSONCodec):
-        assert codec.decode_headers({}, None) is None
+        assert codec.decode_headers({}, type(None)) is None
 
     def test_decode_to_null_raises_an_error_when_headers_not_empty(
         self, codec: PseudoJSONCodec
@@ -27,7 +27,7 @@ class TestCodecDecode:
         with pytest.raises(
             ValueError, match="Expected None but got non-null data instead"
         ):
-            assert codec.decode_headers({"this": "will fail"}, None) is None
+            assert codec.decode_headers({"this": "will fail"}, type(None)) is None
 
     def test_decode_to_string_mapping(self, codec: PseudoJSONCodec):
         assert codec.decode_headers({"a": "b"}, t.Dict[str, str]) == {"a": "b"}

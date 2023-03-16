@@ -4,16 +4,16 @@ from dataclasses import dataclass
 from types import TracebackType
 
 from ..entities.events import Event
-from ..entities.flows import Flow, Subscription
-from ..entities.messages import Message
+from ..entities.flows import Flow, SubscriptionFlow
+from ..entities.messages import Message, Reply
 from ..interfaces.codec import CodecBackend
 from ..interfaces.pubsub import PubSubBackend, PubSubMsg
-from ..types import DataT, MetadataT, ReplyT, ScopeT
+from ..types import DataT, MetaT, ReplyT, ScopeT, ReplyMetaT
 from .waiter import RequestWaiter, Waiter
 
 
 @dataclass
-class _Request(Message[ScopeT, DataT, MetadataT, ReplyT]):
+class _Request(Message[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]):
     reply_subject: str
 
 
@@ -35,8 +35,8 @@ class EventBus:
         return self.__class__(self.pubsub, self.codec, flow=flow)
 
     def _create_message(
-        self, msg: PubSubMsg, event: Event[ScopeT, DataT, MetadataT, ReplyT]
-    ) -> Message[ScopeT, DataT, MetadataT, ReplyT]:
+        self, msg: PubSubMsg, event: Event[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]
+    ) -> Message[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]:
         """Create a typed message out of a pubsub message."""
         subject = msg.get_subject()
         reply_subject = msg.get_reply_subject()
@@ -62,10 +62,10 @@ class EventBus:
 
     async def reply(
         self,
-        message: Message[ScopeT, DataT, MetadataT, ReplyT],
+        message: Message[t.Any, t.Any, t.Any, ReplyT, ReplyMetaT],
         data: ReplyT,
         *,
-        metadata: MetadataT = ...,  # type: ignore[assignment]
+        metadata: ReplyMetaT = ...,  # type: ignore[assignment]
         timeout: t.Optional[float] = None,
     ) -> None:
         """Publish and wait until event is flushed by underlying messaging system."""
@@ -82,11 +82,11 @@ class EventBus:
 
     async def publish(
         self,
-        event: Event[ScopeT, DataT, MetadataT, t.Any],
+        event: Event[ScopeT, DataT, MetaT, t.Any, t.Any],
         data: DataT,
         *,
         scope: ScopeT = ...,  # type: ignore[assignment]
-        metadata: MetadataT = ...,  # type: ignore[assignment]
+        metadata: MetaT = ...,  # type: ignore[assignment]
         timeout: t.Optional[float] = None,
     ) -> None:
         """Publish and wait until event is flushed by underlying messaging system."""
@@ -107,13 +107,13 @@ class EventBus:
 
     async def request(
         self,
-        event: Event[ScopeT, DataT, MetadataT, ReplyT],
+        event: Event[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT],
         data: DataT,
         *,
         scope: ScopeT = ...,  # type: ignore[assignment]
-        metadata: MetadataT = ...,  # type: ignore[assignment]
+        metadata: MetaT = ...,  # type: ignore[assignment]
         timeout: t.Optional[float] = None,
-    ) -> ReplyT:
+    ) -> Reply[ReplyT, ReplyMetaT]:
         """Request and wait for reply."""
         if self.flow and event not in self.flow.requests:
             raise ValueError(
@@ -129,14 +129,21 @@ class EventBus:
         reply = await self.pubsub.request(
             subject=subject, payload=payload, headers=headers, timeout=timeout
         )
-        return self.codec.decode_payload(reply.get_payload(), event.reply_schema)
+        return Reply(
+            data=self.codec.decode_payload(reply.get_payload(), event.reply_schema),
+            metadata=self.codec.decode_headers(
+                reply.get_headers(), event.reply_metadata_schema
+            ),
+        )
 
     @asynccontextmanager
     async def subscribe(
         self,
-        event: Event[ScopeT, DataT, MetadataT, ReplyT],
+        event: Event[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT],
         queue: t.Optional[str] = None,
-    ) -> t.AsyncIterator[t.AsyncIterator[Message[ScopeT, DataT, MetadataT, ReplyT]]]:
+    ) -> t.AsyncIterator[
+        t.AsyncIterator[Message[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]]
+    ]:
         """Create an event observer.
 
         An event observer is an asynchronous context manager yielding an
@@ -153,19 +160,19 @@ class EventBus:
             An asynchronous context manager yielding an asynchronous iterator of messages.
         """
         if self.flow:
-            if not isinstance(self.flow, Subscription):
+            if not isinstance(self.flow, SubscriptionFlow):
                 raise TypeError(
                     "Flow does not have a source declared. Add a source to the flow in order to fix this error."
                 )
-            elif event != self.flow.source:
+            elif event != self.flow.event:
                 raise TypeError(
-                    f"Can only subscribe to the flow source. Tried to subscribe to event {event.name} but flow source is {self.flow.source.name}"
+                    f"Can only subscribe to the flow source. Tried to subscribe to event {event.name} but flow source is {self.flow.event.name}"
                 )
 
         async with self.pubsub.subscribe(event._subject, queue=queue) as subscription:
 
             async def iterator() -> t.AsyncIterator[
-                Message[ScopeT, DataT, MetadataT, ReplyT]
+                Message[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]
             ]:
                 async for msg in subscription:
                     try:
@@ -177,28 +184,28 @@ class EventBus:
             yield iterator()
 
     async def next_event(
-        self, event: Event[ScopeT, DataT, MetadataT, ReplyT]
-    ) -> Message[ScopeT, DataT, MetadataT, ReplyT]:
+        self, event: Event[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]
+    ) -> Message[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]:
         async with self.subscribe(event) as subscription:
             async for msg in subscription:
                 return msg
         raise ValueError("Did not receive a message")
 
     async def wait_in_background(
-        self, event: Event[ScopeT, DataT, MetadataT, ReplyT]
-    ) -> Waiter[Message[ScopeT, DataT, MetadataT, ReplyT]]:
+        self, event: Event[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]
+    ) -> Waiter[Message[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]]:
         """Start waiting in background"""
         return await Waiter.create(self.subscribe(event))
 
     async def request_in_background(
         self,
-        event: Event[ScopeT, DataT, MetadataT, ReplyT],
+        event: Event[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT],
         data: DataT,
         *,
         scope: ScopeT = ...,  # type: ignore[assignment]
-        metadata: MetadataT = ...,  # type: ignore[assignment]
+        metadata: MetaT = ...,  # type: ignore[assignment]
         timeout: t.Optional[float] = None,
-    ) -> RequestWaiter[ReplyT]:
+    ) -> RequestWaiter[ReplyT, ReplyMetaT]:
         """Send a request and wait in background."""
         return await RequestWaiter.create(
             self.request(event, data, scope=scope, metadata=metadata, timeout=timeout)

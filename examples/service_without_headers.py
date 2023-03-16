@@ -1,6 +1,24 @@
+"""An example illustrating  to implement a request/reply service
+which returns generic JSON data, allowing to detect success or failure
+WITHOUT any need for metadata.
+
+Usecases:
+    => All the services which return JSON data and might fail.
+
+Examples:
+    => 99% of our services.
+"""
 import typing as t
 from dataclasses import dataclass, field
-from synopsys import create_event, create_flow, create_bus, Message, Play, Service
+from synopsys import (
+    create_event,
+    create_flow,
+    create_bus,
+    Message,
+    Play,
+    Service,
+    SimpleReply,
+)
 from synopsys.adapters import NATSPubSub
 
 
@@ -55,24 +73,38 @@ bus = create_bus(NATSPubSub())
 
 
 # Define a requester
-async def requester(msg: Message[None, int, None, Result[float]]) -> Result[float]:
-    """A function which can fail.
+async def requester(
+    msg: Message[None, int, None, Result[float], None]
+) -> SimpleReply[Result[float]]:
+    """A service handler must NEVER raise exception.
 
-    There is no magic involved. The event is defined as returning a Result,
-    so this function MUST return a result.
+    It should contain as few logic as possible, calling operations whenever
+    it is possible.
+
+    The main responsability of the handler, is to forward data found within
+    messages to operations or usecases, then to return a reply.
+
+    There is no magic involved. The event is defined as returning Result[float] reply,
+    so this function must return a Result[float] reply, regardless of success or failure.
+
+    Moreover, event is defined WITHOUT metadata, so this function
+    must return a reply WITHOUT metadata.
+
     There is no middleware or hidden transformation involved.
-    If an exceptio is raised, instrumentation may log an error, but nothing else
-    will happen !
+
+    If an exception is raised, instrumentation may log an error, but nothing else
+    will happen ! And no reply will be sent !
     """
     try:
-        return Success(1 / msg.data)
+        return SimpleReply(Success(1 / msg.data))
     except Exception as err:
-        return Error(str(err))
+        return SimpleReply(Error(str(err)))
 
 
-play = Play(
-    bus, [Service("test-service", create_flow(event), requester)], auto_connect=True
-)
+FLOW = create_flow(command=event)
+
+
+play = Play(bus, [Service("base64-encode", FLOW, requester)], auto_connect=True)
 
 
 if __name__ == "__main__":

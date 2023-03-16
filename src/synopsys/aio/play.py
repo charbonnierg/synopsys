@@ -44,19 +44,35 @@ class Play:
         if self.stopped:
             self.stopped.set()
 
-    async def _create_loop(self, actor: Subscriber[t.Any, t.Any, t.Any, t.Any]) -> None:
-        event = actor.flow.source
+    async def _create_susbcriber_loop(
+        self, actor: Subscriber[t.Any, t.Any, t.Any, t.Any, t.Any]
+    ) -> None:
+        event = actor.flow.event
         callback = actor.handler
-        is_service = isinstance(actor, Service)
         async with self.bus.subscribe(event, queue=actor.queue) as subscription:
             self.instrumentation.actor_started(self, actor)
             async for msg in subscription:
                 self.instrumentation.event_received(self, actor, msg)
                 try:
-                    result = await callback(msg)
-                    # Reply when actor is a service
-                    if is_service:
-                        await self.bus.reply(msg, result)
+                    await callback(msg)
+                    self.instrumentation.event_processed(self, actor, msg)
+                except Exception as exc:
+                    self.instrumentation.event_processing_failed(self, actor, msg, exc)
+                    continue
+
+    async def _create_service_loop(
+        self,
+        actor: Service[t.Any, t.Any, t.Any, t.Any, t.Any],
+    ) -> None:
+        event = actor.flow.command
+        callback = actor.handler
+        async with self.bus.subscribe(event, queue=actor.queue) as subscription:
+            self.instrumentation.actor_started(self, actor)
+            async for msg in subscription:
+                self.instrumentation.event_received(self, actor, msg)
+                try:
+                    reply = await callback(msg)
+                    await self.bus.reply(msg, data=reply.data, metadata=reply.metadata)
                     self.instrumentation.event_processed(self, actor, msg)
                 except Exception as exc:
                     self.instrumentation.event_processing_failed(self, actor, msg, exc)
@@ -74,7 +90,16 @@ class Play:
                 continue
             if isinstance(actor, Subscriber):
                 # Start subscriber
-                self.task_group.start_soon(self._create_loop, actor, name=actor.name)
+                self.task_group.start_soon(
+                    self._create_susbcriber_loop, actor, name=actor.name
+                )
+                # Continue in order to start next actor
+                continue
+            if isinstance(actor, Service):
+                # Start service
+                self.task_group.start_soon(
+                    self._create_service_loop, actor, name=actor.name
+                )
                 # Continue in order to start next actor
                 continue
             raise TypeError(

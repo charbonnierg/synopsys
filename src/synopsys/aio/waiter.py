@@ -1,10 +1,10 @@
 import asyncio
 import typing as t
 
-from ..entities import Message
-from ..types import ReplyT
+from ..entities import Message, Reply
+from ..types import ReplyT, ReplyMetaT
 
-MsgT = t.TypeVar("MsgT", bound=Message[t.Any, t.Any, t.Any, t.Any])
+MsgT = t.TypeVar("MsgT", bound=Message[t.Any, t.Any, t.Any, t.Any, t.Any])
 
 
 class Waiter(t.Generic[MsgT]):
@@ -38,19 +38,21 @@ class Waiter(t.Generic[MsgT]):
         return await asyncio.wait_for(self.task, timeout=timeout)
 
 
-class RequestWaiter(t.Generic[ReplyT]):
-    def __init__(self, coroutine: t.Coroutine[t.Any, t.Any, ReplyT]) -> None:
+class RequestWaiter(t.Generic[ReplyT, ReplyMetaT]):
+    def __init__(
+        self, coroutine: t.Coroutine[t.Any, t.Any, Reply[ReplyT, ReplyMetaT]]
+    ) -> None:
         self.task = asyncio.create_task(coroutine)
 
-    async def wait(self, timeout: t.Optional[float] = 5) -> ReplyT:
+    async def wait(self, timeout: t.Optional[float] = 5) -> Reply[ReplyT, ReplyMetaT]:
         """Wait until event is received"""
         return await asyncio.wait_for(self.task, timeout=timeout)
 
     @classmethod
     async def create(
         cls,
-        coroutine: t.Coroutine[t.Any, t.Any, ReplyT],
-    ) -> "RequestWaiter[ReplyT]":
+        coroutine: t.Coroutine[t.Any, t.Any, Reply[ReplyT, ReplyMetaT]],
+    ) -> "RequestWaiter[ReplyT, ReplyMetaT]":
         """Create and start waiter in background."""
         waiter = cls(coroutine)
         await asyncio.sleep(0)

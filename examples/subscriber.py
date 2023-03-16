@@ -73,7 +73,7 @@ PROCESSING_DONE = create_event(
 )
 
 MEASUREMENT_FLOW = create_flow(
-    MEASUREMENT_EVENT,
+    event=MEASUREMENT_EVENT,
     emits=[PROCESSING_DONE],
     scope={"location": "westus"},
 )
@@ -84,7 +84,7 @@ class Handler:
     bus: EventBus
 
     async def __call__(
-        self, msg: Message[EventScope, int, MeasurementMeta, None]
+        self, msg: Message[EventScope, int, MeasurementMeta, None, None]
     ) -> None:
         """Process messages for a specific event."""
         # Emit an event indicating that event was processed

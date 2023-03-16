@@ -25,7 +25,7 @@ class PlayInstrumentation:
         self,
         play: "Play",
         actor: Actor,
-        msg: Message[t.Any, t.Any, t.Any, t.Any],
+        msg: Message[t.Any, t.Any, t.Any, t.Any, t.Any],
         exc: BaseException,
     ) -> None:
         """Observe an exception raised by an actor."""
@@ -34,7 +34,7 @@ class PlayInstrumentation:
         self,
         play: "Play",
         actor: Actor,
-        msg: Message[t.Any, t.Any, t.Any, t.Any],
+        msg: Message[t.Any, t.Any, t.Any, t.Any, t.Any],
     ) -> None:
         """Observe a received message"""
 
@@ -42,7 +42,7 @@ class PlayInstrumentation:
         self,
         play: "Play",
         actor: Actor,
-        msg: Message[t.Any, t.Any, t.Any, t.Any],
+        msg: Message[t.Any, t.Any, t.Any, t.Any, t.Any],
     ) -> None:
         """Observe a successful event processed"""
 

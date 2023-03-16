@@ -1,7 +1,7 @@
 from .actors import Actor, Producer, Subscriber, Service
 from .events import Event
-from .flows import Flow, Subscription
-from .messages import Message
+from .flows import Flow, SubscriptionFlow
+from .messages import Message, Reply, SimpleReply
 from .syntax import SubjectSyntax
 
 __all__ = [
@@ -9,9 +9,11 @@ __all__ = [
     "Event",
     "Flow",
     "Message",
+    "Reply",
     "Producer",
     "Service",
     "SubjectSyntax",
     "Subscriber",
-    "Subscription",
+    "SubscriptionFlow",
+    "SimpleReply",
 ]

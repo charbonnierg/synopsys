@@ -4,7 +4,7 @@ import pytest
 import pytest_asyncio
 from _pytest.fixtures import SubRequest
 
-from synopsys import EventBus, Message, create_event
+from synopsys import EventBus, Message, Reply, create_event
 from synopsys.adapters import InMemoryPubSub, NATSPubSub, PseudoJSONCodec
 from synopsys.errors import BusDisconnectedError, SubscriptionClosedError
 
@@ -102,7 +102,7 @@ class TestEventBusInterface:
         # Send a reply to the request
         await bus.reply(request, data=request.data + 1)
         # Await the pending request and confirm received data
-        assert await pending_request.wait() == 13
+        assert await pending_request.wait() == Reply(data=13, metadata=None)
 
     @pytest.mark.asyncio
     async def test_subscription_iterator_is_closed_on_context_exit(self, bus: EventBus):

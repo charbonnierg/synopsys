@@ -24,7 +24,9 @@ from synopsys.api import Event, create_event
     ],
 )
 def test_extract_subject_placeholders(
-    subject: str, event: Event[t.Any, t.Any, t.Any, t.Any], result: t.Dict[str, str]
+    subject: str,
+    event: Event[t.Any, t.Any, t.Any, t.Any, t.Any],
+    result: t.Dict[str, str],
 ):
     assert event.extract_scope(subject) == result
 
