@@ -1,8 +1,8 @@
 import typing as t
 from dataclasses import dataclass
 
-from ..types import DataT, MetaT, ReplyT, ScopeT, ReplyMetaT
-from .flows import SubscriptionFlow, ServiceFlow, ProducerFlow
+from ..types import DataT, MetaT, ReplyMetaT, ReplyT, ScopeT
+from .flows import ProducerFlow, ServiceFlow, SubscriptionFlow
 from .messages import Message, Reply
 
 if t.TYPE_CHECKING:
@@ -12,8 +12,6 @@ if t.TYPE_CHECKING:
 @dataclass
 class Actor:
     """Base class for actors."""
-
-    name: str
 
 
 @dataclass

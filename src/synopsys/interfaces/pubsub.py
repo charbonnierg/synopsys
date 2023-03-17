@@ -56,9 +56,7 @@ class PubSubBackend(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def subscribe(
-        self,
-        subject: str,
-        queue: t.Optional[str] = None,
+        self, subject: str, queue: t.Optional[str] = None, reply: bool = False
     ) -> t.AsyncContextManager[t.AsyncIterator[PubSubMsg]]:
         """Subscribe to events published on given subject."""
         raise NotImplementedError  # pragma: no cover

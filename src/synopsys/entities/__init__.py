@@ -1,4 +1,4 @@
-from .actors import Actor, Producer, Subscriber, Service
+from .actors import Actor, Producer, Service, Subscriber
 from .events import Event
 from .flows import Flow, SubscriptionFlow
 from .messages import Message, Reply, SimpleReply

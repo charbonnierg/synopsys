@@ -3,12 +3,12 @@ import typing as t
 from .aio.bus import EventBus
 from .defaults import DEFAULT_CODEC
 from .entities.events import Event
-from .entities.flows import Flow, SubscriptionFlow, ProducerFlow, ServiceFlow
+from .entities.flows import Flow, ProducerFlow, ServiceFlow, SubscriptionFlow
 from .entities.syntax import SubjectSyntax
 from .interfaces.codec import CodecBackend
 from .interfaces.pubsub import PubSubBackend
 from .operations.subjects import render_subject
-from .types import NULL, DataT, MetaT, ReplyT, ScopeT, ReplyMetaT
+from .types import NULL, DataT, MetaT, ReplyMetaT, ReplyT, ScopeT
 
 __all__ = ["create_event"]
 
@@ -659,6 +659,7 @@ def create_event(
 
 @t.overload
 def create_flow(
+    name: str,
     *,
     event: Event[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT],
     emits: t.Optional[t.List[Event[t.Any, t.Any, t.Any, t.Any, t.Any]]] = None,
@@ -670,6 +671,7 @@ def create_flow(
 
 @t.overload
 def create_flow(
+    name: str,
     *,
     command: Event[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT],
     emits: t.Optional[t.List[Event[t.Any, t.Any, t.Any, t.Any, t.Any]]] = None,
@@ -681,6 +683,7 @@ def create_flow(
 
 @t.overload
 def create_flow(
+    name: str,
     *,
     event: None = None,
     command: None = None,
@@ -692,6 +695,7 @@ def create_flow(
 
 
 def create_flow(
+    name: str,
     *,
     event: t.Optional[Event[t.Any, t.Any, t.Any, t.Any, t.Any]] = None,
     command: t.Optional[Event[t.Any, t.Any, t.Any, t.Any, t.Any]] = None,
@@ -739,10 +743,15 @@ def create_flow(
         # Return a subscription flow for events
         if event:
             return SubscriptionFlow(
-                emits=emits, requests=requests, event=source, filter=source_filter
+                name=name,
+                emits=emits,
+                requests=requests,
+                event=source,
+                filter=source_filter,
             )
         # Return a service flow for commands
         return ServiceFlow(
+            name=name,
             emits=emits,
             requests=requests,
             command=source,
@@ -750,16 +759,17 @@ def create_flow(
         )
     elif event:
         return SubscriptionFlow(
-            emits=emits, requests=requests, event=event, filter=event
+            name=name, emits=emits, requests=requests, event=event, filter=event
         )
     elif command:
         return ServiceFlow(
+            name=name,
             emits=emits,
             requests=requests,
             command=command,
             filter=command,
         )
-    return ProducerFlow(emits=emits, requests=requests)
+    return ProducerFlow(name=name, emits=emits, requests=requests)
 
 
 def create_bus(

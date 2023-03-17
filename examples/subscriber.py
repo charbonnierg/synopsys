@@ -8,9 +8,9 @@ Below is a proposal python API to facilitate domain-driven-development and event
 This file is a single-file python module for the sake of simplicity, but in practice, code could
 be splitted into several files. The parts which can be split are separated by '######' lines.
 """
+import logging
 import typing as t
 from dataclasses import dataclass
-import logging
 
 from synopsys import (
     EventBus,
@@ -73,6 +73,7 @@ PROCESSING_DONE = create_event(
 )
 
 MEASUREMENT_FLOW = create_flow(
+    "measurement-processor",
     event=MEASUREMENT_EVENT,
     emits=[PROCESSING_DONE],
     scope={"location": "westus"},
@@ -104,7 +105,6 @@ play = Play(
         # mypy would detect an error if handler did not have the proper signature
         # according to flow definition
         Subscriber(
-            "measurement-subscriber",
             # Subscribe will subscribe to flow source
             MEASUREMENT_FLOW,
             # Handler event bus is restricted according to the flow permissions

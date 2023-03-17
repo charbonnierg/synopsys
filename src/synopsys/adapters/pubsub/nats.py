@@ -80,7 +80,7 @@ class NATSPubSub(PubSubBackend):
 
     @asynccontextmanager
     async def subscribe(
-        self, subject: str, queue: t.Optional[str] = None
+        self, subject: str, queue: t.Optional[str] = None, reply: bool = False
     ) -> t.AsyncIterator[t.AsyncIterator[PubSubMsg]]:
         """Subscribe to messages published on given subject."""
 

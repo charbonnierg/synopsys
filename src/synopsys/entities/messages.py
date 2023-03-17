@@ -1,7 +1,7 @@
 import typing as t
 from dataclasses import dataclass
 
-from ..types import DataT, MetaT, ReplyT, ScopeT, ReplyMetaT
+from ..types import DataT, MetaT, ReplyMetaT, ReplyT, ScopeT
 from .events import Event
 
 

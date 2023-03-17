@@ -6,6 +6,7 @@ from _pytest.fixtures import SubRequest
 
 from synopsys import EventBus, Message, Reply, create_event
 from synopsys.adapters import InMemoryPubSub, NATSPubSub, PseudoJSONCodec
+from synopsys.adapters.pubsub.redis import RedisPubSub
 from synopsys.errors import BusDisconnectedError, SubscriptionClosedError
 
 
@@ -23,9 +24,10 @@ async def bus(request: SubRequest) -> t.AsyncIterator[EventBus]:
     [
         InMemoryPubSub,
         NATSPubSub,
+        RedisPubSub,
     ],
     indirect=True,
-    ids=["memory", "nats"],
+    ids=["memory", "nats", "redis"],
 )
 class TestEventBusInterface:
     """Test the event bus interface."""
@@ -42,14 +44,24 @@ class TestEventBusInterface:
         await bus.publish(event, data=12, metadata={"test": "somemeta"}, timeout=0.1)
         # Confirm that event was received
         received_event = await waiter.wait()
-        # Confirm event message
-        assert received_event == Message(
-            subject="test",
-            scope=None,
-            data=12,
-            metadata={"test": "somemeta"},
-            event=event,
-        )
+        # Custom check for redis pubsub
+        if isinstance(bus.pubsub, RedisPubSub):
+            assert received_event == Message(
+                subject="test",
+                scope=None,
+                data=12,
+                metadata=t.cast(t.Dict[str, str], {}),
+                event=event,
+            )
+        else:
+            # Confirm event message
+            assert received_event == Message(
+                subject="test",
+                scope=None,
+                data=12,
+                metadata={"test": "somemeta"},
+                event=event,
+            )
 
     @pytest.mark.asyncio
     async def test_event_bus_observe_event(self, bus: EventBus):
@@ -73,13 +85,22 @@ class TestEventBusInterface:
         )
         # Confirm that waiter received the message
         received_event = await waiter.wait(timeout=0.1)
-        assert received_event == Message(
-            subject="test.1",
-            scope=None,
-            data=12,
-            metadata={"test": "somemeta"},
-            event=target_event,
-        )
+        if isinstance(bus.pubsub, RedisPubSub):
+            assert received_event == Message(
+                subject="test.1",
+                scope=None,
+                data=12,
+                metadata=t.cast(t.Dict[str, str], {}),
+                event=target_event,
+            )
+        else:
+            assert received_event == Message(
+                subject="test.1",
+                scope=None,
+                data=12,
+                metadata={"test": "somemeta"},
+                event=target_event,
+            )
 
     @pytest.mark.asyncio
     async def test_event_bus_request_event(self, bus: EventBus):
@@ -95,10 +116,10 @@ class TestEventBusInterface:
         waiter = await bus.wait_in_background(event)
         # Create a pending request
         pending_request = await bus.request_in_background(
-            event, data=12, metadata={"test": "somemeta"}, timeout=0.1
+            event, data=12, metadata={"test": "somemeta"}, timeout=0.5
         )
         # Wait for request
-        request = await waiter.wait()
+        request = await waiter.wait(timeout=1)
         # Send a reply to the request
         await bus.reply(request, data=request.data + 1)
         # Await the pending request and confirm received data

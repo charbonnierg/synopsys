@@ -84,7 +84,7 @@ def extract_scope(
 def render_subject(
     tokens: t.List[str],
     placeholders: t.Dict[str, int],
-    context: t.Optional[t.Dict[str, str]],
+    context: t.Optional[t.Mapping[str, str]],
     syntax: SubjectSyntax,
     is_filter: bool = False,
 ) -> str:

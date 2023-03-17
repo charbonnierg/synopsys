@@ -8,7 +8,7 @@ from ..entities.flows import Flow, SubscriptionFlow
 from ..entities.messages import Message, Reply
 from ..interfaces.codec import CodecBackend
 from ..interfaces.pubsub import PubSubBackend, PubSubMsg
-from ..types import DataT, MetaT, ReplyT, ScopeT, ReplyMetaT
+from ..types import DataT, MetaT, ReplyMetaT, ReplyT, ScopeT
 from .waiter import RequestWaiter, Waiter
 
 
@@ -169,7 +169,11 @@ class EventBus:
                     f"Can only subscribe to the flow source. Tried to subscribe to event {event.name} but flow source is {self.flow.event.name}"
                 )
 
-        async with self.pubsub.subscribe(event._subject, queue=queue) as subscription:
+        is_reply = event.reply_schema is not type(None)  # noqa: E721
+
+        async with self.pubsub.subscribe(
+            event._subject, queue=queue, reply=is_reply
+        ) as subscription:
 
             async def iterator() -> t.AsyncIterator[
                 Message[ScopeT, DataT, MetaT, ReplyT, ReplyMetaT]
@@ -177,7 +181,10 @@ class EventBus:
                 async for msg in subscription:
                     try:
                         yield self._create_message(msg, event)
-                    except Exception:
+                    except Exception as exc:
+                        import logging
+
+                        logging.error("Failed to process message", exc_info=exc)
                         # TODO: It may not be a good idea to simply skip
                         continue
 

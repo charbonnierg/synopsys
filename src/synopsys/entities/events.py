@@ -26,7 +26,7 @@ from ..operations.subjects import (
     normalize_subject,
     render_subject,
 )
-from ..types import DataT, MetaT, ReplyT, ScopeT, ReplyMetaT
+from ..types import DataT, MetaT, ReplyMetaT, ReplyT, ScopeT
 from .syntax import SubjectSyntax
 
 

@@ -141,9 +141,7 @@ class InMemoryPubSub(PubSubBackend):
 
     @asynccontextmanager
     async def subscribe(
-        self,
-        subject: str,
-        queue: t.Optional[str] = None,
+        self, subject: str, queue: t.Optional[str] = None, reply: bool = False
     ) -> t.AsyncIterator[t.AsyncIterator[InMemoryMsg]]:
         """Create a new observer, optionally within a queue."""
         if self._closed:

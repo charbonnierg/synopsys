@@ -12,20 +12,20 @@ Examples:
     more plainful for example (need to pipe and know which UNIX command can be used
     to decode)
 """
-import typing as t
 import base64
+import typing as t
 from dataclasses import dataclass
+
 from synopsys import (
-    create_event,
-    create_flow,
-    create_bus,
     Message,
     Play,
-    Service,
     Reply,
+    Service,
+    create_bus,
+    create_event,
+    create_flow,
 )
 from synopsys.adapters import NATSPubSub
-
 
 T = t.TypeVar("T")
 
@@ -110,12 +110,12 @@ async def handler(
         return Reply(b"", Error(str(err)))
 
 
-FLOW = create_flow(command=event)
+FLOW = create_flow("service-flow", command=event)
 
 play = Play(
     bus,
     actors=[
-        Service("test-service", FLOW, handler),
+        Service(FLOW, handler),
     ],
     auto_connect=True,
 )

@@ -1,19 +1,12 @@
-import typing as t
 import asyncio
+import typing as t
 
 import pytest
-from _pytest.fixtures import SubRequest
 import pytest_asyncio
+from _pytest.fixtures import SubRequest
 from anyio import fail_after
 
-from synopsys import (
-    Play,
-    create_event,
-    create_flow,
-    create_bus,
-    EventBus,
-    Producer,
-)
+from synopsys import EventBus, Play, Producer, create_bus, create_event, create_flow
 from synopsys.adapters import InMemoryPubSub, NATSPubSub
 
 
@@ -143,7 +136,8 @@ class TestPlayProducers:
                 await bus.publish(EVENT, None, timeout=0.1)
 
         producer = Producer(
-            name="test-producer", flow=create_flow(emits=[EVENT]), task_factory=task
+            flow=create_flow("test-producer", emits=[EVENT]),
+            task_factory=task,
         )
         play = Play(bus, []).with_actors(producer)
         received: t.List[t.Any] = []

@@ -2,7 +2,7 @@ import asyncio
 import typing as t
 
 from ..entities import Message, Reply
-from ..types import ReplyT, ReplyMetaT
+from ..types import ReplyMetaT, ReplyT
 
 MsgT = t.TypeVar("MsgT", bound=Message[t.Any, t.Any, t.Any, t.Any, t.Any])
 

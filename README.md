@@ -1,20 +1,22 @@
 ## Synopsys
 
-> 
+> Build Event-Driven Python applications
 
-## Table of content
+## Features
 
-- [Quick start](#quick-start)
-  - [Prerequisites](#prerequisites)
-  - [Installing the project](#installing-the-project)
-- [Developer installation](#developer-installation)
-- [Development tasks](#development-tasks)
-- [Git flow](#git-flow)
-- [Git commits](#git-commits)
-- [Changelog](#changelog)
-- [Contributing to the documentation](#contributing-to-the-documentation)
+- Event-driven.
 
-## Quick start
+- 100% type-safe.
+
+- Explicit APIs, no magic.
+
+- In-memory PubSub backend.
+ 
+- NATS Event PubSub backend.
+
+- Redis Event PubSub backend.
+
+- AsyncAPI Generation.
 
 ### Installing the project
 
@@ -24,26 +26,14 @@ Users can install project from github using `pip`:
 pip install synopsys@git+https://github.com/charbonnierg/synopsys.git
 ```
 
-Confirm that project is installed correctly by importing the version string:
-
-```python
-from synopsys import __version__
-print(__version__)
-```
-
 ## Developer installation
 
-This project is packaged using [setuptools](https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html) and a [pyproject.toml](./pyproject.toml) according to [PEP 621](https://peps.python.org/pep-0621/).
 
-> Starting with [PEP 621](https://peps.python.org/pep-0621/), the Python community selected `pyproject.toml` as a standard way of specifying python projects metadata. Setuptools has adopted this standard and use the information contained in this file as an input in the build process.
-
-### Install using script
-
-> The install script is responsible for first creating a virtual environment, then updating packaging dependencies such as `pip`, `setuptools` and `wheel` within the virtual environment. Finally, it installs the project in development mode within the virtual environment.
+> The [install](./scripts/install.py) script is responsible for first creating a virtual environment, then updating packaging dependencies such as `pip`, `setuptools` and `wheel` within the virtual environment. Finally, it installs the project in development mode within the virtual environment.
 
 > The virtual environment is always named `.venv/`
 
-Run the `install.py` script located in the `scripts/` directory with the Python interpreter of your choice. The script accepts the following arguments:
+Run the `[install.py](./scripts/install.py)` script located in the `[scripts/](./scripts/)` directory with the Python interpreter of your choice. The script accepts the following arguments:
 
 - `--dev`: install extra dependencies required to contribute to development
 - `--docs`: install extra dependencies required to build and serve documentation

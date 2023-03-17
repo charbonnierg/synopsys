@@ -10,17 +10,17 @@ Examples:
 """
 import typing as t
 from dataclasses import dataclass, field
+
 from synopsys import (
-    create_event,
-    create_flow,
-    create_bus,
     Message,
     Play,
     Service,
     SimpleReply,
+    create_bus,
+    create_event,
+    create_flow,
 )
 from synopsys.adapters import NATSPubSub
-
 
 T = t.TypeVar("T")
 
@@ -101,10 +101,10 @@ async def requester(
         return SimpleReply(Error(str(err)))
 
 
-FLOW = create_flow(command=event)
+FLOW = create_flow("base64-encoder", command=event)
 
 
-play = Play(bus, [Service("base64-encode", FLOW, requester)], auto_connect=True)
+play = Play(bus, [Service(FLOW, requester)], auto_connect=True)
 
 
 if __name__ == "__main__":

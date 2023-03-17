@@ -7,7 +7,7 @@ from types import TracebackType
 from anyio import Event, create_task_group, get_cancelled_exc_class, run
 from anyio.abc._tasks import TaskGroup
 
-from ..entities.actors import Actor, Producer, Subscriber, Service
+from ..entities.actors import Actor, Producer, Service, Subscriber
 from ..interfaces.instrumentation import PlayInstrumentation
 from .bus import EventBus
 
@@ -84,21 +84,23 @@ class Play:
             if isinstance(actor, Producer):
                 # Start producer
                 self.task_group.start_soon(
-                    actor.task_factory, self.bus.bind_flow(actor.flow), name=actor.name
+                    actor.task_factory,
+                    self.bus.bind_flow(actor.flow),
+                    name=actor.flow.name,
                 )
                 # Continue in order to start next actor
                 continue
             if isinstance(actor, Subscriber):
                 # Start subscriber
                 self.task_group.start_soon(
-                    self._create_susbcriber_loop, actor, name=actor.name
+                    self._create_susbcriber_loop, actor, name=actor.flow.name
                 )
                 # Continue in order to start next actor
                 continue
             if isinstance(actor, Service):
                 # Start service
                 self.task_group.start_soon(
-                    self._create_service_loop, actor, name=actor.name
+                    self._create_service_loop, actor, name=actor.flow.name
                 )
                 # Continue in order to start next actor
                 continue
